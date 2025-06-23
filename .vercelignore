@@ -1,0 +1,123 @@
+# CIVICA 144 - Vercel Ignore Configuration
+# Optimize deployment by excluding unnecessary files
+
+# Development files
+.env.local
+.env.development
+.env.test
+.env.*.local
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs (except dist)
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Development and testing
+.env.test
+test/
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+shrinkwrap.yaml
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Temporary folders
+tmp/
+temp/
+
+# Local development
+.env.example
+docker-compose.yml
+Dockerfile
+*.dockerfile
+
+# Scripts not needed in production
+scripts/
+tools/
+
+# Source maps (if not needed in production)
+*.map
+
+# Large assets that should be handled by CDN
+# public/large-assets/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# IDE specific files
+.vscode/settings.json
+.idea/workspace.xml
+
+# Vercel specific
+.vercel/

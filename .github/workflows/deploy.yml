@@ -1,0 +1,329 @@
+name: CIVICA 144 - Multi-Cloud Production Deployment
+
+on:
+  push:
+    branches: [main, production]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "18"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build and Test
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type checking
+        run: npm run build:dev
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Generate version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(date +%Y%m%d)-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build production bundle
+        run: |
+          export VITE_APP_VERSION=${{ steps.version.outputs.version }}
+          export VITE_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ steps.version.outputs.version }}
+          path: dist/
+          retention-days: 30
+
+      # Build Docker Image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NODE_ENV=production
+            VITE_APP_VERSION=${{ steps.version.outputs.version }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.build-and-test.outputs.image-tag }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  # Deploy to Vercel
+  deploy-vercel:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+    environment:
+      name: vercel-production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.build-and-test.outputs.version }}
+          path: dist/
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          vercel-args: "--prod"
+
+  # Deploy to AWS
+  deploy-aws:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/production'
+    environment:
+      name: aws-production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push image to ECR
+        run: |
+          ECR_REPOSITORY="${{ secrets.AWS_ECR_REPOSITORY }}"
+          IMAGE_TAG="${{ needs.build-and-test.outputs.version }}"
+
+          docker pull ${{ needs.build-and-test.outputs.image-tag }}
+          docker tag ${{ needs.build-and-test.outputs.image-tag }} $ECR_REPOSITORY:$IMAGE_TAG
+          docker tag ${{ needs.build-and-test.outputs.image-tag }} $ECR_REPOSITORY:latest
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REPOSITORY:latest
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file deploy/aws/cloudformation.yml \
+            --stack-name civica144-production \
+            --parameter-overrides \
+              Environment=production \
+              DomainName=${{ secrets.AWS_DOMAIN_NAME }} \
+              CertificateArn=${{ secrets.AWS_CERTIFICATE_ARN }} \
+              VpcId=${{ secrets.AWS_VPC_ID }} \
+              SubnetIds=${{ secrets.AWS_SUBNET_IDS }} \
+              KeyPairName=${{ secrets.AWS_KEY_PAIR_NAME }} \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Update Auto Scaling Group
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name $(aws cloudformation describe-stacks \
+              --stack-name civica144-production \
+              --query 'Stacks[0].Outputs[?OutputKey==`AutoScalingGroupName`].OutputValue' \
+              --output text) \
+            --preferences MinHealthyPercentage=50,InstanceWarmup=300
+
+  # Deploy to Azure
+  deploy-azure:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/production'
+    environment:
+      name: azure-production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name ${{ secrets.AZURE_REGISTRY_NAME }}
+
+      - name: Tag and push image to ACR
+        run: |
+          ACR_NAME="${{ secrets.AZURE_REGISTRY_NAME }}"
+          IMAGE_TAG="${{ needs.build-and-test.outputs.version }}"
+
+          docker pull ${{ needs.build-and-test.outputs.image-tag }}
+          docker tag ${{ needs.build-and-test.outputs.image-tag }} ${ACR_NAME}.azurecr.io/civica144:$IMAGE_TAG
+          docker tag ${{ needs.build-and-test.outputs.image-tag }} ${ACR_NAME}.azurecr.io/civica144:latest
+          docker push ${ACR_NAME}.azurecr.io/civica144:$IMAGE_TAG
+          docker push ${ACR_NAME}.azurecr.io/civica144:latest
+
+      - name: Deploy ARM template
+        uses: azure/arm-deploy@v1
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          template: ./deploy/azure/azuredeploy.json
+          parameters: |
+            environment=production
+            appName=civica144
+            containerImageName=civica144:${{ needs.build-and-test.outputs.version }}
+            administratorPassword=${{ secrets.AZURE_ADMIN_PASSWORD }}
+
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --name civica144-app-production \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+  # Performance Testing
+  performance-test:
+    runs-on: ubuntu-latest
+    needs: [deploy-vercel]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          LHCI_TARGET_URL: ${{ needs.deploy-vercel.outputs.url }}
+
+  # Monitoring Setup
+  setup-monitoring:
+    runs-on: ubuntu-latest
+    needs: [deploy-vercel, deploy-aws, deploy-azure]
+    if: always() && (needs.deploy-vercel.result == 'success' || needs.deploy-aws.result == 'success' || needs.deploy-azure.result == 'success')
+
+    steps:
+      - name: Setup monitoring alerts
+        run: |
+          echo "Setting up monitoring alerts for deployed environments"
+          echo "Vercel: ${{ needs.deploy-vercel.outputs.url }}"
+          # Add monitoring setup logic here
+
+  # Slack Notification
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy-vercel, deploy-aws, deploy-azure, performance-test]
+    if: always()
+
+    steps:
+      - name: Slack Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: "#civica144-deployments"
+          text: |
+            CIVICA 144 Deployment Status:
+            • Vercel: ${{ needs.deploy-vercel.result }}
+            • AWS: ${{ needs.deploy-aws.result }}
+            • Azure: ${{ needs.deploy-azure.result }}
+            • Performance: ${{ needs.performance-test.result }}
+
+            Version: ${{ needs.build-and-test.outputs.version }}
+            Commit: ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Load Test - CIVICA 144</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: linear-gradient(
+          135deg,
+          #1e293b 0%,
+          #7c3aed 50%,
+          #1e293b 100%
+        );
+        color: white;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .status {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+      }
+      .title {
+        font-size: 4rem;
+        font-weight: bold;
+        background: linear-gradient(45deg, #06b6d4, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 2rem;
+      }
+      .button {
+        background: linear-gradient(45deg, #06b6d4, #8b5cf6);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border-radius: 12px;
+        cursor: pointer;
+        margin: 0.5rem;
+        transition: transform 0.2s ease;
+      }
+      .button:hover {
+        transform: scale(1.05);
+      }
+      .info {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status">✅ STATIC HTML LOADED</div>
+
+    <div>
+      <h1 class="title">🚀 LOAD TEST</h1>
+      <p style="font-size: 1.5rem; color: #a78bfa; margin-bottom: 2rem">
+        Basic HTML Test - No React Dependencies
+      </p>
+
+      <button class="button" onclick="testReactApp()">Test React App</button>
+
+      <button class="button" onclick="testHealthCheck()">
+        Test Health Check
+      </button>
+
+      <button class="button" onclick="testDiagnostic()">Test Diagnostic</button>
+
+      <button class="button" onclick="forceReload()">🔄 Force Reload</button>
+
+      <div style="margin-top: 2rem; font-size: 1rem">
+        <div style="margin-bottom: 1rem">
+          <strong>Server Status:</strong>
+          <span id="server-status">Testing...</span>
+        </div>
+        <div><strong>Last Check:</strong> <span id="last-check">-</span></div>
+      </div>
+    </div>
+
+    <div class="info">
+      🔧 Static HTML Test<br />
+      📍 URL: <span id="current-url"></span><br />
+      🕒 <span id="current-time"></span>
+    </div>
+
+    <script>
+      // Update current info
+      document.getElementById("current-url").textContent = window.location.href;
+      document.getElementById("current-time").textContent =
+        new Date().toLocaleTimeString();
+
+      // Update time every second
+      setInterval(() => {
+        document.getElementById("current-time").textContent =
+          new Date().toLocaleTimeString();
+      }, 1000);
+
+      // Test functions
+      function testReactApp() {
+        document.getElementById("server-status").textContent =
+          "Testing React app...";
+        document.getElementById("server-status").style.color = "#f59e0b";
+        window.location.href = "/";
+      }
+
+      function testHealthCheck() {
+        document.getElementById("server-status").textContent =
+          "Testing health check...";
+        document.getElementById("server-status").style.color = "#f59e0b";
+        window.location.href = "/health";
+      }
+
+      function testDiagnostic() {
+        document.getElementById("server-status").textContent =
+          "Testing diagnostic...";
+        document.getElementById("server-status").style.color = "#f59e0b";
+        window.location.href = "/load-diagnostic";
+      }
+
+      function forceReload() {
+        window.location.reload(true);
+      }
+
+      // Test server connectivity
+      async function checkServer() {
+        try {
+          const response = await fetch("/health", {
+            method: "GET",
+            cache: "no-cache",
+            timeout: 5000,
+          });
+
+          if (response.ok) {
+            document.getElementById("server-status").textContent =
+              "✅ Server Online";
+            document.getElementById("server-status").style.color = "#10b981";
+          } else {
+            document.getElementById("server-status").textContent =
+              `⚠️ Server Error ${response.status}`;
+            document.getElementById("server-status").style.color = "#f59e0b";
+          }
+        } catch (error) {
+          document.getElementById("server-status").textContent =
+            "❌ Server Offline";
+          document.getElementById("server-status").style.color = "#ef4444";
+          console.error("Server check failed:", error);
+        }
+
+        document.getElementById("last-check").textContent =
+          new Date().toLocaleTimeString();
+      }
+
+      // Check server status on load and every 10 seconds
+      checkServer();
+      setInterval(checkServer, 10000);
+
+      // Log browser info
+      console.log("🔧 Browser Info:", {
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        timestamp: new Date().toISOString(),
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  civica-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+        VITE_APP_ENVIRONMENT: production
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
+        BUILD_TIME: ${BUILD_TIME}
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - VITE_APP_ENVIRONMENT=production
+    volumes:
+      - ./logs:/var/log/nginx
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - civica-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.civica.rule=Host(`civica.local`)"
+      - "traefik.http.services.civica.loadbalancer.server.port=8080"
+
+  # Optional: Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-civica-redis-2024}
+    networks:
+      - civica-network
+
+  # Optional: Monitoring with basic health checks
+  health-monitor:
+    image: alpine:latest
+    command: >
+      sh -c "
+        apk add --no-cache curl &&
+        while true; do
+          curl -f http://civica-app:8080/health || echo 'Health check failed at $(date)';
+          sleep 60;
+        done
+      "
+    depends_on:
+      - civica-app
+    networks:
+      - civica-network
+    restart: unless-stopped
+
+networks:
+  civica-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

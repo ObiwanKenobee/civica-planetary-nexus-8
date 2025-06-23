@@ -1,0 +1,423 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CIVICA 144 - Guardian Intelligence Platform - AWS Production Deployment"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Deployment environment
+
+  DomainName:
+    Type: String
+    Description: Domain name for the application (e.g., civica144.com)
+    Default: ""
+
+  CertificateArn:
+    Type: String
+    Description: ACM Certificate ARN for HTTPS
+    Default: ""
+
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues: [t3.micro, t3.small, t3.medium, t3.large, t3.xlarge]
+    Description: EC2 instance type for the application
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where resources will be created
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for the load balancer (minimum 2 in different AZs)
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c55b159cbfafe1d0
+    us-west-2:
+      AMI: ami-0d1cd67c26f5fca19
+    eu-west-1:
+      AMI: ami-08935252a36e25f85
+
+Resources:
+  # Security Group for Application Load Balancer
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for CIVICA 144 Application Load Balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-alb-sg-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Security Group for EC2 instances
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for CIVICA 144 EC2 instances
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: Application port from ALB
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH access
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-ec2-sg-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM Role for EC2 instances
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: CIVICA144ECRAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: "*"
+        - PolicyName: CIVICA144SecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref ApplicationSecrets
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-ec2-role-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Instance Profile
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  # Secrets Manager for application secrets
+  ApplicationSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "civica144-secrets-${Environment}"
+      Description: "CIVICA 144 application secrets"
+      SecretString: !Sub |
+        {
+          "PAYSTACK_SECRET_KEY": "your_paystack_secret_key",
+          "PAYPAL_CLIENT_SECRET": "your_paypal_client_secret",
+          "VITE_ENCRYPTION_KEY": "your_encryption_key",
+          "VITE_WEBHOOK_SECRET": "your_webhook_secret",
+          "REDIS_PASSWORD": "your_redis_password"
+        }
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-secrets-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Launch Template
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "civica144-lt-${Environment}"
+      LaunchTemplateData:
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            amazon-linux-extras install docker -y
+            service docker start
+            usermod -a -G docker ec2-user
+
+            # Install CloudWatch agent
+            wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+            rpm -U ./amazon-cloudwatch-agent.rpm
+
+            # Install AWS CLI v2
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+
+            # Get secrets from AWS Secrets Manager
+            SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id ${ApplicationSecrets} --region ${AWS::Region} --query SecretString --output text)
+
+            # Create environment file
+            echo "VITE_APP_ENVIRONMENT=${Environment}" > /opt/civica144.env
+            echo "AWS_REGION=${AWS::Region}" >> /opt/civica144.env
+            echo "$SECRET_VALUE" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> /opt/civica144.env
+
+            # Pull and run Docker container
+            ECR_URI="${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin $ECR_URI
+
+            # Run CIVICA 144 container
+            docker run -d \
+              --name civica144 \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              --env-file /opt/civica144.env \
+              -v /var/log/civica144:/var/log/nginx \
+              $ECR_URI/civica144:latest
+
+            # Configure CloudWatch logs
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << EOF
+            {
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {
+                        "file_path": "/var/log/civica144/access.log",
+                        "log_group_name": "/aws/ec2/civica144/nginx/access",
+                        "log_stream_name": "{instance_id}",
+                        "timezone": "UTC"
+                      },
+                      {
+                        "file_path": "/var/log/civica144/error.log",
+                        "log_group_name": "/aws/ec2/civica144/nginx/error",
+                        "log_stream_name": "{instance_id}",
+                        "timezone": "UTC"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metrics": {
+                "namespace": "CIVICA144/Application",
+                "metrics_collected": {
+                  "cpu": {
+                    "measurement": [
+                      "cpu_usage_idle",
+                      "cpu_usage_iowait",
+                      "cpu_usage_user",
+                      "cpu_usage_system"
+                    ],
+                    "metrics_collection_interval": 60
+                  },
+                  "disk": {
+                    "measurement": [
+                      "used_percent"
+                    ],
+                    "metrics_collection_interval": 60,
+                    "resources": [
+                      "*"
+                    ]
+                  },
+                  "mem": {
+                    "measurement": [
+                      "mem_used_percent"
+                    ],
+                    "metrics_collection_interval": 60
+                  }
+                }
+              }
+            }
+            EOF
+
+            # Start CloudWatch agent
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+              -a fetch-config -m ec2 -s \
+              -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "civica144-instance-${Environment}"
+              - Key: Environment
+                Value: !Ref Environment
+
+  # Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 5
+      DesiredCapacity: 2
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-asg-${Environment}"
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "civica144-alb-${Environment}"
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-alb-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "civica144-tg-${Environment}"
+      Port: 8080
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetType: instance
+      Tags:
+        - Key: Name
+          Value: !Sub "civica144-tg-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # HTTP Listener (redirect to HTTPS)
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: 443
+            StatusCode: HTTP_301
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # HTTPS Listener
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasCertificate
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+
+  # CloudWatch Log Groups
+  NginxAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/ec2/civica144/nginx/access
+      RetentionInDays: 30
+
+  NginxErrorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/ec2/civica144/nginx/error
+      RetentionInDays: 30
+
+  # Route 53 Record (if domain provided)
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasDomain
+    Properties:
+      HostedZoneName: !Sub "${DomainName}."
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApplicationLoadBalancer.DNSName
+        HostedZoneId: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+
+Conditions:
+  HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS name of the load balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerDNS"
+
+  ApplicationURL:
+    Description: URL of the CIVICA 144 application
+    Value: !If
+      - HasDomain
+      - !Sub "https://${DomainName}"
+      - !Sub "http://${ApplicationLoadBalancer.DNSName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApplicationURL"
+
+  AutoScalingGroupName:
+    Description: Name of the Auto Scaling Group
+    Value: !Ref AutoScalingGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-AutoScalingGroup"
+
+  SecretsManagerArn:
+    Description: ARN of the Secrets Manager secret
+    Value: !Ref ApplicationSecrets
+    Export:
+      Name: !Sub "${AWS::StackName}-SecretsArn"

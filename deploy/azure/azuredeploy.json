@@ -1,0 +1,574 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "CIVICA 144 - Guardian Intelligence Platform - Azure Production Deployment"
+  },
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "production",
+      "allowedValues": ["development", "staging", "production"],
+      "metadata": {
+        "description": "Deployment environment"
+      }
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "civica144",
+      "metadata": {
+        "description": "Name of the application"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "appServicePlanSku": {
+      "type": "string",
+      "defaultValue": "P1v2",
+      "allowedValues": ["F1", "B1", "B2", "S1", "S2", "P1v2", "P2v2", "P3v2"],
+      "metadata": {
+        "description": "App Service Plan SKU"
+      }
+    },
+    "containerImageName": {
+      "type": "string",
+      "defaultValue": "civica144:latest",
+      "metadata": {
+        "description": "Container image name"
+      }
+    },
+    "customDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Custom domain name (optional)"
+      }
+    },
+    "administratorLogin": {
+      "type": "string",
+      "defaultValue": "civicaadmin",
+      "metadata": {
+        "description": "Administrator login for services"
+      }
+    },
+    "administratorPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Administrator password for services"
+      }
+    }
+  },
+  "variables": {
+    "appServicePlanName": "[concat(parameters('appName'), '-asp-', parameters('environment'))]",
+    "appServiceName": "[concat(parameters('appName'), '-app-', parameters('environment'))]",
+    "containerRegistryName": "[concat(parameters('appName'), 'acr', parameters('environment'))]",
+    "keyVaultName": "[concat(parameters('appName'), '-kv-', parameters('environment'))]",
+    "applicationInsightsName": "[concat(parameters('appName'), '-ai-', parameters('environment'))]",
+    "logAnalyticsWorkspaceName": "[concat(parameters('appName'), '-law-', parameters('environment'))]",
+    "storageAccountName": "[concat(toLower(parameters('appName')), 'storage', parameters('environment'))]",
+    "redisCacheName": "[concat(parameters('appName'), '-redis-', parameters('environment'))]",
+    "frontDoorName": "[concat(parameters('appName'), '-fd-', parameters('environment'))]",
+    "webApplicationFirewallName": "[concat(parameters('appName'), '-waf-', parameters('environment'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-09-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "encryption": {
+          "services": {
+            "file": {
+              "keyType": "Account",
+              "enabled": true
+            },
+            "blob": {
+              "keyType": "Account",
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "accessTier": "Hot"
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2021-06-01",
+      "name": "[variables('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('applicationInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+      ],
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2021-11-01-preview",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.Web/sites', variables('appServiceName')), '2021-03-01', 'full').identity.principalId]",
+            "permissions": {
+              "secrets": ["get", "list"]
+            }
+          }
+        ],
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enabledForTemplateDeployment": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 30,
+        "enableRbacAuthorization": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+      ],
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2021-11-01-preview",
+      "name": "[concat(variables('keyVaultName'), '/PaystackSecretKey')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "your_paystack_secret_key_here"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2021-11-01-preview",
+      "name": "[concat(variables('keyVaultName'), '/PaypalClientSecret')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "your_paypal_client_secret_here"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2021-11-01-preview",
+      "name": "[concat(variables('keyVaultName'), '/EncryptionKey')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "your_encryption_key_here"
+      }
+    },
+    {
+      "type": "Microsoft.Cache/Redis",
+      "apiVersion": "2021-06-01",
+      "name": "[variables('redisCacheName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "Basic",
+          "family": "C",
+          "capacity": 0
+        },
+        "enableNonSslPort": false,
+        "minimumTlsVersion": "1.2",
+        "redisConfiguration": {
+          "maxmemory-policy": "allkeys-lru"
+        }
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2021-09-01",
+      "name": "[variables('containerRegistryName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "adminUserEnabled": true
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "properties": {
+        "reserved": true
+      },
+      "sku": {
+        "name": "[parameters('appServicePlanSku')]"
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('appServiceName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))]",
+        "[resourceId('Microsoft.Cache/Redis', variables('redisCacheName'))]"
+      ],
+      "kind": "app,linux,container",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "siteConfig": {
+          "linuxFxVersion": "[concat('DOCKER|', reference(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))).loginServer, '/', parameters('containerImageName'))]",
+          "appSettings": [
+            {
+              "name": "DOCKER_REGISTRY_SERVER_URL",
+              "value": "[concat('https://', reference(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))).loginServer)]"
+            },
+            {
+              "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))).adminUserEnabled]"
+            },
+            {
+              "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+              "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName')), '2021-09-01').passwords[0].value]"
+            },
+            {
+              "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+              "value": "false"
+            },
+            {
+              "name": "WEBSITES_PORT",
+              "value": "8080"
+            },
+            {
+              "name": "VITE_APP_ENVIRONMENT",
+              "value": "[parameters('environment')]"
+            },
+            {
+              "name": "AZURE_REGION",
+              "value": "[parameters('location')]"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).ConnectionString]"
+            },
+            {
+              "name": "REDIS_CONNECTION_STRING",
+              "value": "[concat(reference(resourceId('Microsoft.Cache/Redis', variables('redisCacheName'))).hostName, ':', reference(resourceId('Microsoft.Cache/Redis', variables('redisCacheName'))).sslPort, ',password=', listKeys(resourceId('Microsoft.Cache/Redis', variables('redisCacheName')), '2021-06-01').primaryKey, ',ssl=True,abortConnect=False')]"
+            }
+          ],
+          "alwaysOn": true,
+          "httpLoggingEnabled": true,
+          "logsDirectorySizeLimit": 35,
+          "detailedErrorLoggingEnabled": true,
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "scmMinTlsVersion": "1.2",
+          "use32BitWorkerProcess": false,
+          "webSocketsEnabled": false,
+          "managedPipelineMode": "Integrated",
+          "virtualApplications": [
+            {
+              "virtualPath": "/",
+              "physicalPath": "site\\wwwroot",
+              "preloadEnabled": true
+            }
+          ],
+          "loadBalancing": "LeastRequests",
+          "autoHealEnabled": true,
+          "autoHealRules": {
+            "triggers": {
+              "requests": {
+                "count": 1000,
+                "timeInterval": "00:05:00"
+              },
+              "privateBytesInKB": 1000000,
+              "statusCodes": [
+                {
+                  "status": 500,
+                  "subStatus": 0,
+                  "win32Status": 0,
+                  "count": 10,
+                  "timeInterval": "00:05:00"
+                }
+              ]
+            },
+            "actions": {
+              "actionType": "Recycle"
+            }
+          }
+        },
+        "httpsOnly": true,
+        "clientAffinityEnabled": false
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.Network/FrontDoorWebApplicationFirewallPolicies",
+      "apiVersion": "2020-11-01",
+      "name": "[variables('webApplicationFirewallName')]",
+      "location": "Global",
+      "properties": {
+        "policySettings": {
+          "enabledState": "Enabled",
+          "mode": "Detection",
+          "redirectUrl": null,
+          "customBlockResponseStatusCode": 403,
+          "customBlockResponseBody": "Q0lWSUNBIDE0NCAtIEFjY2VzcyBEZW5pZWQ="
+        },
+        "customRules": {
+          "rules": [
+            {
+              "name": "RateLimitRule",
+              "priority": 1,
+              "enabledState": "Enabled",
+              "ruleType": "RateLimitRule",
+              "action": "Block",
+              "matchConditions": [
+                {
+                  "matchVariable": "RemoteAddr",
+                  "operator": "Any",
+                  "matchValue": []
+                }
+              ],
+              "rateLimitDurationInMinutes": 1,
+              "rateLimitThreshold": 100
+            },
+            {
+              "name": "BlockMaliciousIPs",
+              "priority": 2,
+              "enabledState": "Enabled",
+              "ruleType": "MatchRule",
+              "action": "Block",
+              "matchConditions": [
+                {
+                  "matchVariable": "RemoteAddr",
+                  "operator": "IPMatch",
+                  "matchValue": ["192.0.2.0/24", "198.51.100.0/24"]
+                }
+              ]
+            }
+          ]
+        },
+        "managedRules": {
+          "managedRuleSets": [
+            {
+              "ruleSetType": "Microsoft_DefaultRuleSet",
+              "ruleSetVersion": "1.1"
+            },
+            {
+              "ruleSetType": "Microsoft_BotManagerRuleSet",
+              "ruleSetVersion": "1.0"
+            }
+          ]
+        }
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    },
+    {
+      "type": "Microsoft.Network/frontdoors",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('frontDoorName')]",
+      "location": "Global",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]",
+        "[resourceId('Microsoft.Network/FrontDoorWebApplicationFirewallPolicies', variables('webApplicationFirewallName'))]"
+      ],
+      "properties": {
+        "resourceState": "Enabled",
+        "frontendEndpoints": [
+          {
+            "name": "defaultFrontendEndpoint",
+            "properties": {
+              "hostName": "[concat(variables('frontDoorName'), '.azurefd.net')]",
+              "sessionAffinityEnabledState": "Disabled",
+              "sessionAffinityTtlSeconds": 0,
+              "webApplicationFirewallPolicyLink": {
+                "id": "[resourceId('Microsoft.Network/FrontDoorWebApplicationFirewallPolicies', variables('webApplicationFirewallName'))]"
+              }
+            }
+          }
+        ],
+        "loadBalancingSettings": [
+          {
+            "name": "defaultLoadBalancingSettings",
+            "properties": {
+              "sampleSize": 4,
+              "successfulSamplesRequired": 2,
+              "additionalLatencyMilliseconds": 0
+            }
+          }
+        ],
+        "healthProbeSettings": [
+          {
+            "name": "defaultHealthProbeSettings",
+            "properties": {
+              "path": "/health",
+              "protocol": "Https",
+              "intervalInSeconds": 120,
+              "healthProbeMethod": "GET",
+              "enabledState": "Enabled"
+            }
+          }
+        ],
+        "backendPools": [
+          {
+            "name": "defaultBackendPool",
+            "properties": {
+              "backends": [
+                {
+                  "address": "[concat(variables('appServiceName'), '.azurewebsites.net')]",
+                  "backendHostHeader": "[concat(variables('appServiceName'), '.azurewebsites.net')]",
+                  "httpPort": 80,
+                  "httpsPort": 443,
+                  "weight": 50,
+                  "priority": 1,
+                  "enabledState": "Enabled"
+                }
+              ],
+              "loadBalancingSettings": {
+                "id": "[concat(resourceId('Microsoft.Network/frontdoors', variables('frontDoorName')), '/loadBalancingSettings/defaultLoadBalancingSettings')]"
+              },
+              "healthProbeSettings": {
+                "id": "[concat(resourceId('Microsoft.Network/frontdoors', variables('frontDoorName')), '/healthProbeSettings/defaultHealthProbeSettings')]"
+              }
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "name": "defaultRoutingRule",
+            "properties": {
+              "frontendEndpoints": [
+                {
+                  "id": "[concat(resourceId('Microsoft.Network/frontdoors', variables('frontDoorName')), '/frontendEndpoints/defaultFrontendEndpoint')]"
+                }
+              ],
+              "acceptedProtocols": ["Http", "Https"],
+              "patternsToMatch": ["/*"],
+              "enabledState": "Enabled",
+              "routeConfiguration": {
+                "@odata.type": "#Microsoft.Azure.FrontDoor.Models.FrontdoorForwardingConfiguration",
+                "customForwardingPath": null,
+                "forwardingProtocol": "HttpsOnly",
+                "backendPool": {
+                  "id": "[concat(resourceId('Microsoft.Network/frontdoors', variables('frontDoorName')), '/backendPools/defaultBackendPool')]"
+                },
+                "cacheConfiguration": {
+                  "queryParameterStripDirective": "StripNone",
+                  "dynamicCompression": "Enabled",
+                  "cacheDuration": "P1D"
+                }
+              }
+            }
+          }
+        ],
+        "enabledState": "Enabled"
+      },
+      "tags": {
+        "Environment": "[parameters('environment')]",
+        "Application": "CIVICA144"
+      }
+    }
+  ],
+  "outputs": {
+    "appServiceName": {
+      "type": "string",
+      "value": "[variables('appServiceName')]"
+    },
+    "appServiceUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('appServiceName'))).defaultHostName)]"
+    },
+    "frontDoorUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.Network/frontdoors', variables('frontDoorName'))).frontendEndpoints[0].hostName)]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))).loginServer]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "applicationInsightsKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName'))).InstrumentationKey]"
+    }
+  }
+}

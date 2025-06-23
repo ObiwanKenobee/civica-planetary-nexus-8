@@ -1,0 +1,484 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Sacred Technology Design System - Mobile-First Responsive */
+
+@layer utilities {
+  /* Responsive Text Utilities */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+
+  .text-responsive-3xl {
+    @apply text-3xl sm:text-4xl lg:text-5xl xl:text-6xl;
+  }
+
+  .text-responsive-4xl {
+    @apply text-4xl sm:text-5xl lg:text-6xl xl:text-7xl;
+  }
+
+  /* Responsive Spacing Utilities */
+  .space-responsive-sm > * + * {
+    @apply mt-2 sm:mt-3;
+  }
+
+  .space-responsive-md > * + * {
+    @apply mt-4 sm:mt-6;
+  }
+
+  .space-responsive-lg > * + * {
+    @apply mt-6 sm:mt-8 lg:mt-12;
+  }
+
+  .space-responsive-xl > * + * {
+    @apply mt-8 sm:mt-12 lg:mt-16 xl:mt-20;
+  }
+
+  /* Sacred Gradients - Consciousness-informed */
+  .bg-sacred-dawn {
+    @apply bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600;
+  }
+
+  .bg-sacred-midday {
+    @apply bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600;
+  }
+
+  .bg-sacred-dusk {
+    @apply bg-gradient-to-br from-purple-400 via-pink-500 to-orange-600;
+  }
+
+  .bg-sacred-midnight {
+    @apply bg-gradient-to-br from-indigo-400 via-purple-500 to-violet-600;
+  }
+
+  /* Sacred Technology Card Styles */
+  .card-sacred {
+    @apply bg-black/40 border border-purple-500/30 backdrop-blur-md;
+  }
+
+  .card-sacred-hover {
+    @apply hover:border-purple-500/50 hover:bg-black/50 transition-all duration-300;
+  }
+
+  .card-sacred-active {
+    @apply border-cyan-400/70 bg-cyan-500/10;
+  }
+
+  /* Responsive Container with Sacred Proportions */
+  .container-sacred {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .container-sacred-narrow {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl;
+  }
+
+  .container-sacred-wide {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+
+  /* Sacred Button Styles */
+  .btn-sacred-primary {
+    @apply bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-semibold;
+  }
+
+  .btn-sacred-secondary {
+    @apply bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold;
+  }
+
+  .btn-sacred-accent {
+    @apply bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold;
+  }
+
+  /* Sacred Typography */
+  .text-sacred-title {
+    @apply font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent;
+  }
+
+  .text-sacred-subtitle {
+    @apply font-semibold text-gray-300;
+  }
+
+  .text-sacred-body {
+    @apply text-gray-300 leading-relaxed;
+  }
+
+  /* Touch-Optimized Interactive Elements */
+  .touch-target {
+    @apply min-h-11 min-w-11 flex items-center justify-center;
+  }
+
+  .touch-scroll {
+    @apply overflow-x-auto scrollbar-hide;
+  }
+
+  /* Sacred Animations */
+  .animate-sacred-pulse {
+    animation: sacred-pulse 3s ease-in-out infinite;
+  }
+
+  .animate-sacred-float {
+    animation: sacred-float 6s ease-in-out infinite;
+  }
+
+  .animate-sacred-shimmer {
+    animation: sacred-shimmer 2s linear infinite;
+  }
+
+  /* Gradient Animation Utilities */
+  .animate-gradient-x {
+    animation: gradient-x 3s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  .animate-gradient-y {
+    animation: gradient-y 3s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  .bg-size-200 {
+    background-size: 200% 200%;
+  }
+
+  /* Line Clamp Utilities for Content Truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .line-clamp-4 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
+
+  /* Sacred Focus States for Accessibility */
+  .focus-sacred {
+    @apply focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50;
+  }
+
+  .focus-sacred-inset {
+    @apply focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400;
+  }
+}
+
+/* Sacred Technology Keyframe Animations */
+@keyframes sacred-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes sacred-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes sacred-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Gradient Animation Keyframes */
+@keyframes gradient-x {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes gradient-y {
+  0%,
+  100% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+}
+
+/* Custom Scrollbar Styles */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-sacred {
+    scrollbar-width: thin;
+    scrollbar-color: #8b5cf6 #1f2937;
+  }
+
+  .scrollbar-sacred::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-sacred::-webkit-scrollbar-track {
+    background: #1f2937;
+    border-radius: 3px;
+  }
+
+  .scrollbar-sacred::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #06b6d4, #8b5cf6);
+    border-radius: 3px;
+  }
+
+  .scrollbar-sacred::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #0891b2, #7c3aed);
+  }
+}
+
+/* Responsive Typography Scale */
+@layer base {
+  html {
+    font-size: 16px;
+  }
+
+  @media (max-width: 640px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    html {
+      font-size: 18px;
+    }
+  }
+}
+
+/* Sacred Technology Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-friendly {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .card-sacred {
+    @apply border-2 border-white;
+  }
+
+  .text-sacred-title {
+    @apply text-white;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-sacred-pulse,
+  .animate-sacred-float,
+  .animate-sacred-shimmer,
+  .animate-gradient-x,
+  .animate-gradient-y {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Dark Mode Support for System Preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
+/* Sacred Technology Focus Management */
+@layer base {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .not-sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+}
+
+/* Sacred Technology Selection Styles */
+::selection {
+  background-color: rgba(6, 182, 212, 0.3);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: rgba(6, 182, 212, 0.3);
+  color: white;
+}
