@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { 
-  Zap, 
-  Activity, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Zap,
+  Activity,
+  TrendingUp,
+  TrendingDown,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -24,11 +24,11 @@ import {
   Leaf,
   Heart
 } from "lucide-react";
-import { 
-  SimulationResult, 
-  IoTReading, 
+import {
+  SimulationResult,
+  IoTReading,
   CivicScroll,
-  CommunityImpact 
+  CommunityImpact
 } from "@/types/scrollSignal";
 
 interface SimulationEngineProps {
@@ -44,11 +44,11 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
 }) => {
   const [realTimeMetrics, setRealTimeMetrics] = useState({
     edgeLatency: 12,
-    5gSignal: 95,
+    fiveGSignal: 95,
     iotConnections: 24,
     aiProcessing: 87,
   });
-  
+
   const [simulationLoad, setSimulationLoad] = useState(0);
   const [runningSimulation, setRunningSimulation] = useState<string | null>(null);
 
@@ -69,11 +69,11 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
   const runNewSimulation = async (type: string) => {
     setRunningSimulation(type);
     setSimulationLoad(0);
-    
+
     // Simulate processing steps
     const steps = [
       "Initializing edge compute nodes...",
-      "Collecting IoT sensor data...", 
+      "Collecting IoT sensor data...",
       "Processing SageMaker models...",
       "Analyzing community impact...",
       "Generating predictions...",
@@ -122,7 +122,7 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
         {
           aspect: "Livestock health protection",
           likelihood: 0.72,
-          impact: "medium", 
+          impact: "medium",
           timeline: "3 days",
           mitigation: ["alternative_water_sources"],
         }
@@ -353,7 +353,7 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
                         </div>
                       </div>
                       <div className="text-xs text-gray-400">
-                        Resources: {rec.resources.join(", ")} • 
+                        Resources: {rec.resources.join(", ")} •
                         Responsibility: {rec.responsibility.join(", ")}
                       </div>
                     </div>
@@ -407,7 +407,7 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
               <div key={reading.sensorId} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
                 <div className="flex items-center space-x-3">
                   <div className={`w-3 h-3 rounded-full ${
-                    reading.alert ? "bg-red-400" : 
+                    reading.alert ? "bg-red-400" :
                     reading.quality === "excellent" ? "bg-green-400" :
                     reading.quality === "good" ? "bg-yellow-400" : "bg-orange-400"
                   }`} />
