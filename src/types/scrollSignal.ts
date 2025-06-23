@@ -28,7 +28,7 @@ export interface AIConfig {
 export interface SimulationConfig {
   edgeComputing: boolean;
   realTimeSync: boolean;
-  5gEnabled: boolean;
+  fiveGEnabled: boolean;
   iotSensors: IoTSensorConfig[];
   wavelengthZones: string[];
 }
@@ -68,9 +68,9 @@ export interface CivicScroll {
   metadata: ScrollMetadata;
 }
 
-export type ScrollType = 
+export type ScrollType =
   | "healthcare"
-  | "education" 
+  | "education"
   | "environment"
   | "cultural"
   | "governance"
@@ -78,7 +78,7 @@ export type ScrollType =
   | "ritual"
   | "memory";
 
-export type ScrollStatus = 
+export type ScrollStatus =
   | "creating"
   | "pending_blessing"
   | "blessed"
@@ -97,9 +97,9 @@ export interface CommunityMember {
   contributions: number;
 }
 
-export type CommunityRole = 
+export type CommunityRole =
   | "elder"
-  | "healer" 
+  | "healer"
   | "teacher"
   | "farmer"
   | "guardian"
@@ -125,9 +125,9 @@ export interface Blessing {
   power: number;
 }
 
-export type BlessingType = 
+export type BlessingType =
   | "elder_wisdom"
-  | "community_consent" 
+  | "community_consent"
   | "ancestral_guidance"
   | "nature_harmony"
   | "divine_approval"
@@ -142,7 +142,7 @@ export interface CeremonyRecord {
   outcome: CeremonyOutcome;
 }
 
-export type CeremonyType = 
+export type CeremonyType =
   | "blessing_circle"
   | "healing_ritual"
   | "decision_council"
@@ -150,7 +150,7 @@ export type CeremonyType =
   | "emergency_gathering"
   | "memory_keeping";
 
-export type CeremonyOutcome = 
+export type CeremonyOutcome =
   | "unanimous_approval"
   | "majority_consent"
   | "elder_guidance_needed"
@@ -285,7 +285,13 @@ export interface SacredElement {
 }
 
 export interface RitualTiming {
-  preferred: "dawn" | "midday" | "dusk" | "midnight" | "moon_phase" | "seasonal";
+  preferred:
+    | "dawn"
+    | "midday"
+    | "dusk"
+    | "midnight"
+    | "moon_phase"
+    | "seasonal";
   duration: number;
   preparation: number;
   followUp: number;
@@ -308,9 +314,9 @@ export interface ProtocolStep {
   energy: "grounding" | "raising" | "balancing" | "releasing";
 }
 
-export type PermissionLevel = 
+export type PermissionLevel =
   | "elder_only"
-  | "initiated_only" 
+  | "initiated_only"
   | "community_member"
   | "visitor_welcome"
   | "children_included";
@@ -451,9 +457,9 @@ export interface IoTSensorConfig {
   connectivity: "5G" | "LoRaWAN" | "WiFi" | "Satellite";
 }
 
-export type IoTSensorType = 
+export type IoTSensorType =
   | "water_quality"
-  | "soil_moisture" 
+  | "soil_moisture"
   | "air_quality"
   | "weather"
   | "crop_health"
@@ -489,7 +495,7 @@ export interface ScrollSignalAction {
   payload?: any;
 }
 
-export type ScrollSignalActionType = 
+export type ScrollSignalActionType =
   | "START_LISTENING"
   | "STOP_LISTENING"
   | "VOICE_INPUT"
