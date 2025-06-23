@@ -457,7 +457,9 @@ export class SecurePayPalService {
 
   async getOrderDetails(orderId: string): Promise<PayPalOrder> {
     try {
-      const response = await this.api.get<PayPalOrder>(
+      this.initialize();
+
+      const response = await this.api!.get<PayPalOrder>(
         `/v2/checkout/orders/${orderId}`,
       );
       return response.data;
