@@ -16,7 +16,7 @@ import {
   Clock,
   CheckCircle,
   Star,
-  Candle,
+  Flame,
   Moon,
   Sun,
   Leaf,
