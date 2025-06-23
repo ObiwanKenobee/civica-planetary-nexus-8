@@ -515,6 +515,21 @@ export const CLUSTER_COMPASS_NODES: ClusterCompassNode[] = [
     externalLink: "/security",
     description: "Extended Detection & Response security platform",
   },
+  {
+    id: 16,
+    name: "ScrollSignal Civic Intelligence",
+    shortName: "ScrollSignal",
+    glyph: "📜",
+    color: "#8b5cf6", // violet-500
+    position: { angle: 285, radius: 100 },
+    activity: "intense",
+    wisdomLevel: 0.92,
+    activeRituals: 18,
+    canEnter: true,
+    externalLink: "/scroll-signal",
+    description:
+      "Generative AI civic intelligence platform for remote communities",
+  },
 ];
 
 export const GLYPH_MORPHISMS: Record<string, GlyphMorphism> = {
