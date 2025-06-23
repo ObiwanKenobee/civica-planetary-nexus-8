@@ -330,7 +330,7 @@ export const RitualBlessing: React.FC<RitualBlessingProps> = ({
                         animate={{ scale: [1, 1.2, 1] }}
                         transition={{ duration: 1, repeat: Infinity }}
                       >
-                        <Candle className="w-4 h-4 text-yellow-400" />
+                        <Flame className="w-4 h-4 text-yellow-400" />
                       </motion.div>
                       <span>{currentRitualStep}</span>
                     </div>
