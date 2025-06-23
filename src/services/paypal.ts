@@ -222,7 +222,7 @@ export class SecurePayPalService {
         `${this.config.clientId}:${this.config.clientSecret}`,
       ).toString("base64");
 
-      const response = await this.api.post<PayPalAccessToken>(
+      const response = await this.api!.post<PayPalAccessToken>(
         "/v1/oauth2/token",
         "grant_type=client_credentials",
         {
