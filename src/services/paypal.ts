@@ -310,7 +310,7 @@ export class SecurePayPalService {
         },
       };
 
-      const response = await this.api.post<PayPalOrder>(
+      const response = await this.api!.post<PayPalOrder>(
         "/v2/checkout/orders",
         orderRequest,
       );
