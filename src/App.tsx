@@ -106,6 +106,14 @@ const App = () => {
                           }
                         />
                         <Route
+                          path="/scroll-signal"
+                          element={
+                            <SacredAuthGuard>
+                              <ScrollSignal />
+                            </SacredAuthGuard>
+                          }
+                        />
+                        <Route
                           path="/security"
                           element={
                             <SacredAuthGuard>
