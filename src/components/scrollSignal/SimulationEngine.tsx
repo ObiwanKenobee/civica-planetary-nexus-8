@@ -223,13 +223,13 @@ export const SimulationEngine: React.FC<SimulationEngineProps> = ({
               <div>
                 <div className="text-sm text-green-400">5G Signal</div>
                 <div className="text-2xl font-bold text-white">
-                  {realTimeMetrics["5gSignal"].toFixed(0)}%
+                  {realTimeMetrics.fiveGSignal.toFixed(0)}%
                 </div>
               </div>
               <Wifi className="w-8 h-8 text-green-400" />
             </div>
             <Progress
-              value={realTimeMetrics["5gSignal"]}
+              value={realTimeMetrics.fiveGSignal}
               className="mt-2 h-2 bg-green-400/20"
             />
           </CardContent>
