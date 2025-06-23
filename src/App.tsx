@@ -17,6 +17,7 @@ import RitualTech from "./pages/RitualTech";
 import RitualTechServices from "./pages/RitualTechServices";
 import Guardian from "./pages/Guardian";
 import SignalTemple from "./pages/SignalTemple";
+import ScrollSignal from "./pages/ScrollSignal";
 import Security from "./pages/Security";
 import HealthCheck from "./pages/HealthCheck";
 import SacredAuthGuard from "./components/SacredAuthGuard";
@@ -101,6 +102,14 @@ const App = () => {
                           element={
                             <SacredAuthGuard>
                               <SignalTemple />
+                            </SacredAuthGuard>
+                          }
+                        />
+                        <Route
+                          path="/scroll-signal"
+                          element={
+                            <SacredAuthGuard>
+                              <ScrollSignal />
                             </SacredAuthGuard>
                           }
                         />

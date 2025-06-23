@@ -94,23 +94,26 @@ export interface PayPalWebhookEvent {
 }
 
 export class SecurePayPalService {
-  private api: AxiosInstance;
-  private config: PayPalConfig;
+  private api: AxiosInstance | null = null;
+  private config: PayPalConfig | null = null;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
+  private initialized = false;
 
-  constructor() {
+  private initialize(): void {
+    if (this.initialized) return;
+
     this.config = {
-      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID!,
-      clientSecret: import.meta.env.PAYPAL_CLIENT_SECRET,
+      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID || "",
+      clientSecret: import.meta.env.PAYPAL_CLIENT_SECRET || "",
       environment: "live", // Using live environment with provided credentials
-      webhookId: import.meta.env.VITE_PAYPAL_WEBHOOK_ID,
+      webhookId: import.meta.env.VITE_PAYPAL_WEBHOOK_ID || "",
     };
 
-    // Validate configuration
+    // Validate configuration only when actually needed
     if (!this.config.clientId) {
       throw new PaymentSecurityError(
-        "PayPal client ID not configured",
+        "PayPal client ID not configured. Please set VITE_PAYPAL_CLIENT_ID environment variable.",
         "MISSING_CONFIG",
         "critical",
       );
@@ -132,9 +135,12 @@ export class SecurePayPalService {
     });
 
     this.setupInterceptors();
+    this.initialized = true;
   }
 
   private setupInterceptors(): void {
+    if (!this.api) return;
+
     // Request interceptor for security and auth
     this.api.interceptors.request.use(
       async (config) => {
@@ -216,7 +222,7 @@ export class SecurePayPalService {
         `${this.config.clientId}:${this.config.clientSecret}`,
       ).toString("base64");
 
-      const response = await this.api.post<PayPalAccessToken>(
+      const response = await this.api!.post<PayPalAccessToken>(
         "/v1/oauth2/token",
         "grant_type=client_credentials",
         {
@@ -251,6 +257,8 @@ export class SecurePayPalService {
     request: SecurePaymentRequest,
   ): Promise<SecurePaymentResponse> {
     try {
+      this.initialize();
+
       // Security validations
       await this.validatePaymentRequest(request);
 
@@ -302,7 +310,7 @@ export class SecurePayPalService {
         },
       };
 
-      const response = await this.api.post<PayPalOrder>(
+      const response = await this.api!.post<PayPalOrder>(
         "/v2/checkout/orders",
         orderRequest,
       );
@@ -402,7 +410,9 @@ export class SecurePayPalService {
 
   async captureOrder(orderId: string): Promise<PayPalOrder> {
     try {
-      const response = await this.api.post<PayPalOrder>(
+      this.initialize();
+
+      const response = await this.api!.post<PayPalOrder>(
         `/v2/checkout/orders/${orderId}/capture`,
       );
 
@@ -447,7 +457,9 @@ export class SecurePayPalService {
 
   async getOrderDetails(orderId: string): Promise<PayPalOrder> {
     try {
-      const response = await this.api.get<PayPalOrder>(
+      this.initialize();
+
+      const response = await this.api!.get<PayPalOrder>(
         `/v2/checkout/orders/${orderId}`,
       );
       return response.data;
@@ -469,6 +481,8 @@ export class SecurePayPalService {
 
   async handleWebhook(payload: WebhookPayload): Promise<WebhookVerification> {
     try {
+      this.initialize();
+
       // In a real implementation, verify webhook signature using PayPal's webhook verification API
       // For now, we'll do basic validation
       const isValid = this.validateWebhookStructure(payload);
@@ -662,12 +676,14 @@ export class SecurePayPalService {
 
   // Public client ID for frontend
   getClientId(): string {
-    return this.config.clientId;
+    this.initialize();
+    return this.config!.clientId;
   }
 
   // Test connection
   async testConnection(): Promise<boolean> {
     try {
+      this.initialize();
       await this.getAccessToken();
       return true;
     } catch {

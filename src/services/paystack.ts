@@ -60,21 +60,24 @@ export interface PaystackInitializeData {
 }
 
 export class SecurePaystackService {
-  private api: AxiosInstance;
-  private config: PaystackConfig;
+  private api: AxiosInstance | null = null;
+  private config: PaystackConfig | null = null;
+  private initialized = false;
 
-  constructor() {
+  private initialize(): void {
+    if (this.initialized) return;
+
     this.config = {
-      publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY!,
-      secretKey: import.meta.env.PAYSTACK_SECRET_KEY,
+      publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "",
+      secretKey: import.meta.env.PAYSTACK_SECRET_KEY || "",
       baseUrl: "https://api.paystack.co",
-      webhookSecret: import.meta.env.VITE_WEBHOOK_SECRET!,
+      webhookSecret: import.meta.env.VITE_WEBHOOK_SECRET || "",
     };
 
-    // Validate configuration
+    // Validate configuration only when actually needed
     if (!this.config.publicKey) {
       throw new PaymentSecurityError(
-        "Paystack public key not configured",
+        "Paystack public key not configured. Please set VITE_PAYSTACK_PUBLIC_KEY environment variable.",
         "MISSING_CONFIG",
         "critical",
       );
@@ -92,9 +95,12 @@ export class SecurePaystackService {
     });
 
     this.setupInterceptors();
+    this.initialized = true;
   }
 
   private setupInterceptors(): void {
+    if (!this.api) return;
+
     // Request interceptor for security
     this.api.interceptors.request.use(
       (config) => {
@@ -164,6 +170,8 @@ export class SecurePaystackService {
     request: SecurePaymentRequest,
   ): Promise<SecurePaymentResponse> {
     try {
+      this.initialize();
+
       // Security validations
       await this.validatePaymentRequest(request);
 
@@ -209,7 +217,7 @@ export class SecurePaystackService {
       };
 
       // Make API call
-      const response = await this.api.post<
+      const response = await this.api!.post<
         PaystackResponse<PaystackInitializeData>
       >("/transaction/initialize", paystackRequest);
 
@@ -306,7 +314,9 @@ export class SecurePaystackService {
 
   async verifyTransaction(reference: string): Promise<PaystackTransaction> {
     try {
-      const response = await this.api.get<
+      this.initialize();
+
+      const response = await this.api!.get<
         PaystackResponse<PaystackTransaction>
       >(`/transaction/verify/${reference}`);
 
@@ -337,11 +347,13 @@ export class SecurePaystackService {
 
   async handleWebhook(payload: WebhookPayload): Promise<WebhookVerification> {
     try {
+      this.initialize();
+
       // Verify webhook signature
       const isValid = PaymentSecurity.Encryption.verifySignature(
         JSON.stringify(payload.data),
         payload.signature,
-        this.config.webhookSecret,
+        this.config!.webhookSecret,
       );
 
       if (!isValid) {
@@ -516,13 +528,15 @@ export class SecurePaystackService {
 
   // Public key for frontend
   getPublicKey(): string {
-    return this.config.publicKey;
+    this.initialize();
+    return this.config!.publicKey;
   }
 
   // Test connection
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.api.get("/bank");
+      this.initialize();
+      const response = await this.api!.get("/bank");
       return response.data.status === true;
     } catch {
       return false;
