@@ -528,13 +528,15 @@ export class SecurePaystackService {
 
   // Public key for frontend
   getPublicKey(): string {
-    return this.config.publicKey;
+    this.initialize();
+    return this.config!.publicKey;
   }
 
   // Test connection
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.api.get("/bank");
+      this.initialize();
+      const response = await this.api!.get("/bank");
       return response.data.status === true;
     } catch {
       return false;
