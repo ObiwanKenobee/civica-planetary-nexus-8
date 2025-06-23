@@ -60,21 +60,24 @@ export interface PaystackInitializeData {
 }
 
 export class SecurePaystackService {
-  private api: AxiosInstance;
-  private config: PaystackConfig;
+  private api: AxiosInstance | null = null;
+  private config: PaystackConfig | null = null;
+  private initialized = false;
 
-  constructor() {
+  private initialize(): void {
+    if (this.initialized) return;
+
     this.config = {
-      publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY!,
-      secretKey: import.meta.env.PAYSTACK_SECRET_KEY,
+      publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "",
+      secretKey: import.meta.env.PAYSTACK_SECRET_KEY || "",
       baseUrl: "https://api.paystack.co",
-      webhookSecret: import.meta.env.VITE_WEBHOOK_SECRET!,
+      webhookSecret: import.meta.env.VITE_WEBHOOK_SECRET || "",
     };
 
-    // Validate configuration
+    // Validate configuration only when actually needed
     if (!this.config.publicKey) {
       throw new PaymentSecurityError(
-        "Paystack public key not configured",
+        "Paystack public key not configured. Please set VITE_PAYSTACK_PUBLIC_KEY environment variable.",
         "MISSING_CONFIG",
         "critical",
       );
@@ -92,6 +95,7 @@ export class SecurePaystackService {
     });
 
     this.setupInterceptors();
+    this.initialized = true;
   }
 
   private setupInterceptors(): void {
