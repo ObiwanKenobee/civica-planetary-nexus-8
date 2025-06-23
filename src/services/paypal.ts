@@ -135,9 +135,12 @@ export class SecurePayPalService {
     });
 
     this.setupInterceptors();
+    this.initialized = true;
   }
 
   private setupInterceptors(): void {
+    if (!this.api) return;
+
     // Request interceptor for security and auth
     this.api.interceptors.request.use(
       async (config) => {
