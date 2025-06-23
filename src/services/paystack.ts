@@ -99,6 +99,8 @@ export class SecurePaystackService {
   }
 
   private setupInterceptors(): void {
+    if (!this.api) return;
+
     // Request interceptor for security
     this.api.interceptors.request.use(
       (config) => {
