@@ -481,6 +481,8 @@ export class SecurePayPalService {
 
   async handleWebhook(payload: WebhookPayload): Promise<WebhookVerification> {
     try {
+      this.initialize();
+
       // In a real implementation, verify webhook signature using PayPal's webhook verification API
       // For now, we'll do basic validation
       const isValid = this.validateWebhookStructure(payload);
