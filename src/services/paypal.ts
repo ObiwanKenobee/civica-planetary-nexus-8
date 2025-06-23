@@ -676,12 +676,14 @@ export class SecurePayPalService {
 
   // Public client ID for frontend
   getClientId(): string {
-    return this.config.clientId;
+    this.initialize();
+    return this.config!.clientId;
   }
 
   // Test connection
   async testConnection(): Promise<boolean> {
     try {
+      this.initialize();
       await this.getAccessToken();
       return true;
     } catch {
