@@ -217,7 +217,7 @@ export class SecurePaystackService {
       };
 
       // Make API call
-      const response = await this.api.post<
+      const response = await this.api!.post<
         PaystackResponse<PaystackInitializeData>
       >("/transaction/initialize", paystackRequest);
 
