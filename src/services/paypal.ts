@@ -94,23 +94,26 @@ export interface PayPalWebhookEvent {
 }
 
 export class SecurePayPalService {
-  private api: AxiosInstance;
-  private config: PayPalConfig;
+  private api: AxiosInstance | null = null;
+  private config: PayPalConfig | null = null;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
+  private initialized = false;
 
-  constructor() {
+  private initialize(): void {
+    if (this.initialized) return;
+
     this.config = {
-      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID!,
-      clientSecret: import.meta.env.PAYPAL_CLIENT_SECRET,
+      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID || "",
+      clientSecret: import.meta.env.PAYPAL_CLIENT_SECRET || "",
       environment: "live", // Using live environment with provided credentials
-      webhookId: import.meta.env.VITE_PAYPAL_WEBHOOK_ID,
+      webhookId: import.meta.env.VITE_PAYPAL_WEBHOOK_ID || "",
     };
 
-    // Validate configuration
+    // Validate configuration only when actually needed
     if (!this.config.clientId) {
       throw new PaymentSecurityError(
-        "PayPal client ID not configured",
+        "PayPal client ID not configured. Please set VITE_PAYPAL_CLIENT_ID environment variable.",
         "MISSING_CONFIG",
         "critical",
       );
