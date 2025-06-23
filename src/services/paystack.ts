@@ -347,11 +347,13 @@ export class SecurePaystackService {
 
   async handleWebhook(payload: WebhookPayload): Promise<WebhookVerification> {
     try {
+      this.initialize();
+
       // Verify webhook signature
       const isValid = PaymentSecurity.Encryption.verifySignature(
         JSON.stringify(payload.data),
         payload.signature,
-        this.config.webhookSecret,
+        this.config!.webhookSecret,
       );
 
       if (!isValid) {
