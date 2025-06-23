@@ -257,6 +257,8 @@ export class SecurePayPalService {
     request: SecurePaymentRequest,
   ): Promise<SecurePaymentResponse> {
     try {
+      this.initialize();
+
       // Security validations
       await this.validatePaymentRequest(request);
 
