@@ -410,7 +410,9 @@ export class SecurePayPalService {
 
   async captureOrder(orderId: string): Promise<PayPalOrder> {
     try {
-      const response = await this.api.post<PayPalOrder>(
+      this.initialize();
+
+      const response = await this.api!.post<PayPalOrder>(
         `/v2/checkout/orders/${orderId}/capture`,
       );
 
