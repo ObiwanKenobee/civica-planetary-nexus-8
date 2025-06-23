@@ -314,7 +314,9 @@ export class SecurePaystackService {
 
   async verifyTransaction(reference: string): Promise<PaystackTransaction> {
     try {
-      const response = await this.api.get<
+      this.initialize();
+
+      const response = await this.api!.get<
         PaystackResponse<PaystackTransaction>
       >(`/transaction/verify/${reference}`);
 
